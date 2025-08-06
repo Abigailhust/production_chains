@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-快速运行版本 - 使用优化的参数设置
+Fast running version - using optimized parameters
 """
 
 from rp import RPline
@@ -8,58 +8,86 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 
+def make_cost_three_args(theta=5.0,
+                         gamma_p=0.8, rho_p=1.0,
+                         gamma_c=0.2, rho_c=1.0,
+                         mu=0.2, psi=1.5):
+    """
+    Return cost function c(s, t, a).
+    - production cost: (exp(theta * x) - 1) * exp(-gamma_p * a * x**rho_p)
+    - transaction cost: mu * t**psi * exp(-gamma_c * a * t**rho_c)
+    Higher automation level a reduces costs.
+    """
+    def c(s, t, a):
+        x = s - t
+        x = np.clip(s - t, 1e-8, None)  # make sure >= 1e-8
+        t = np.clip(t, 1e-8, None)
+        prod = (np.exp(theta * x) - 1.0) * np.exp(-gamma_p * a * (x ** rho_p))
+        coord = mu * (t ** psi) * np.exp(-gamma_c * a * (t ** rho_c))
+        return prod + coord
+    return c
+
 def run_fast_example():
-    """运行快速示例"""
-    print("=== 快速运行示例 ===")
+    """Run fast example"""
+    print("=== Fast Running Example ===")
     
-    # 使用优化的参数
+    # Use optimized parameters
     start_time = time.time()
     
-    # 创建快速版本
-    ps = RPline(
-        n=100,        # 减少网格点数
-        delta=1.1,    # 降低delta值
-        sbar=0.5,     # 减少规模范围
-        c_list=[lambda s, t, a: np.exp(5*(s-t)) - 1]  # 降低指数系数
+    # Create cost function with automation reducing costs
+    c3 = make_cost_three_args(
+        theta=10.0,           # Production cost parameter
+        gamma_p=0.8, rho_p=1.0,   # Automation reduces production costs
+        gamma_c=0.3, rho_c=1.0,   # Automation reduces coordination costs
+        mu=0.25, psi=1.4
     )
     
-    print(f"创建时间: {time.time() - start_time:.2f}秒")
+    # Create fast version
+    ps = RPline(
+        n=100,        # Reduce grid points
+        delta=1.1,    # Lower delta value
+        sbar=0.5,     # Reduce scale range
+        a=0.5,        # Set automation level
+        c_list=[c3]   # Use the new cost function
+    )
     
-    # 计算交易阶段
+    print(f"Creation time: {time.time() - start_time:.2f} seconds")
+    
+    # Calculate transaction stages
     stage_start = time.time()
     ts = ps.compute_stages()
-    print(f"交易阶段计算时间: {time.time() - stage_start:.2f}秒")
-    print(f"交易阶段: {ts}")
+    print(f"Transaction stage calculation time: {time.time() - stage_start:.2f} seconds")
+    print(f"Transaction stages: {ts}")
     
-    # 绘图
+    # Plotting
     plt.figure(figsize=(12, 8))
     
-    # 主图：价格函数
+    # Main plot: Price function
     plt.subplot(2, 2, 1)
-    ps.plot_prices(plot_stages=True, label='价格函数')
-    plt.title('价格函数 (快速版本)')
-    plt.xlabel('规模 s')
-    plt.ylabel('价格 p(s)')
+    ps.plot_prices(plot_stages=True, label='Price Function')
+    plt.title('Price Function (Fast Version)')
+    plt.xlabel('Scale s')
+    plt.ylabel('Price p(s)')
     plt.grid(True)
     plt.legend()
     
-    # 子图1：t_star函数
+    # Subplot 1: t_star function
     plt.subplot(2, 2, 2)
     ps.plot_t_star()
-    plt.title('最优交易量 t*(s)')
-    plt.xlabel('规模 s')
-    plt.ylabel('交易量 t*(s)')
+    plt.title('Optimal Transaction Volume t*(s)')
+    plt.xlabel('Scale s')
+    plt.ylabel('Transaction Volume t*(s)')
     plt.grid(True)
     
-    # 子图2：ell_star函数
+    # Subplot 2: ell_star function
     plt.subplot(2, 2, 3)
     ps.plot_ell_star()
-    plt.title('最优内部生产量 ℓ*(s)')
-    plt.xlabel('规模 s')
-    plt.ylabel('内部生产量 ℓ*(s)')
+    plt.title('Optimal Internal Production ℓ*(s)')
+    plt.xlabel('Scale s')
+    plt.ylabel('Internal Production ℓ*(s)')
     plt.grid(True)
     
-    # 子图3：成本函数
+    # Subplot 3: Cost function
     plt.subplot(2, 2, 4)
     s_values = np.linspace(0, ps.sbar, 100)
     t_values = np.linspace(0, ps.sbar, 100)
@@ -67,41 +95,50 @@ def run_fast_example():
     C = np.array([[ps._cost(s, t) for t in t_values] for s in s_values])
     
     plt.contourf(S, T, C, levels=20)
-    plt.colorbar(label='成本')
-    plt.title('成本函数 c(s,t)')
-    plt.xlabel('规模 s')
-    plt.ylabel('交易量 t')
+    plt.colorbar(label='Cost')
+    plt.title('Cost Function c(s,t)')
+    plt.xlabel('Scale s')
+    plt.ylabel('Transaction Volume t')
     
     plt.tight_layout()
     plt.savefig('fast_trial_output.png', dpi=150, bbox_inches='tight')
-    print("图片已保存为 fast_trial_output.png")
+    print("Image saved as fast_trial_output.png")
     
     total_time = time.time() - start_time
-    print(f"总计算时间: {total_time:.2f}秒")
-    print("✅ 快速示例运行完成！")
+    print(f"Total computation time: {total_time:.2f} seconds")
+    print("✅ Fast example completed!")
 
 def compare_parameters():
-    """比较不同参数的影响"""
-    print("\n=== 参数比较 ===")
+    """Compare the effects of different parameters"""
+    print("\n=== Parameter Comparison ===")
     
-    # 测试不同的参数组合
+    # Test different parameter combinations
     test_cases = [
-        {"name": "快速版本", "n": 50, "delta": 1.1, "sbar": 0.5, "exp_coeff": 5},
-        {"name": "中等版本", "n": 100, "delta": 1.2, "sbar": 1.0, "exp_coeff": 8},
-        {"name": "标准版本", "n": 200, "delta": 1.2, "sbar": 1.0, "exp_coeff": 10}
+        {"name": "Fast Version", "n": 50, "delta": 1.1, "sbar": 0.5, "theta": 8.0},
+        {"name": "Medium Version", "n": 100, "delta": 1.2, "sbar": 1.0, "theta": 10.0},
+        {"name": "Standard Version", "n": 200, "delta": 1.2, "sbar": 1.0, "theta": 12.0}
     ]
     
     results = []
     
     for case in test_cases:
-        print(f"\n测试 {case['name']}...")
+        print(f"\nTesting {case['name']}...")
         start = time.time()
+        
+        # Create cost function for this case
+        c3 = make_cost_three_args(
+            theta=case['theta'],
+            gamma_p=0.8, rho_p=1.0,
+            gamma_c=0.3, rho_c=1.0,
+            mu=0.25, psi=1.4
+        )
         
         ps = RPline(
             n=case['n'],
             delta=case['delta'],
             sbar=case['sbar'],
-            c_list=[lambda s, t, a, coeff=case['exp_coeff']: np.exp(coeff*(s-t)) - 1]
+            a=0.5,  # Set automation level
+            c_list=[c3]
         )
         
         end = time.time()
@@ -112,14 +149,132 @@ def compare_parameters():
             "delta": case['delta']
         })
         
-        print(f"  计算时间: {end - start:.2f}秒")
-        print(f"  网格大小: {case['n']}")
+        print(f"  Computation time: {end - start:.2f} seconds")
+        print(f"  Grid size: {case['n']}")
         print(f"  Delta: {case['delta']}")
     
-    print(f"\n=== 比较结果 ===")
+    print(f"\n=== Comparison Results ===")
     for result in results:
-        print(f"{result['name']}: {result['time']:.2f}秒 (n={result['grid_size']}, δ={result['delta']})")
+        print(f"{result['name']}: {result['time']:.2f} seconds (n={result['grid_size']}, δ={result['delta']})")
+
+def test_automation_levels():
+    """Test different automation levels"""
+    print("\n=== Automation Level Test ===")
+    
+    # Test different automation levels
+    automation_levels = [0.0, 0.2, 0.5, 0.8, 1.0]
+    
+    for a in automation_levels:
+        print(f"\nTesting automation level a = {a}")
+        start = time.time()
+        
+        # Create cost function with automation reducing costs
+        c3 = make_cost_three_args(
+            theta=10.0,
+            gamma_p=0.8, rho_p=1.0,
+            gamma_c=0.3, rho_c=1.0,
+            mu=0.25, psi=1.4
+        )
+        
+        ps = RPline(
+            n=100,
+            delta=1.1,
+            sbar=0.5,
+            a=a,  # Set automation level
+            c_list=[c3]
+        )
+        
+        end = time.time()
+        print(f"  Computation time: {end - start:.2f} seconds")
+        print(f"  Automation level: {a}")
+        
+        # Calculate some key metrics
+        ts = ps.compute_stages()
+        print(f"  Number of transaction stages: {len(ts)}")
+        if len(ts) > 1:
+            print(f"  First transaction stage: {ts[1]:.4f}")
+
+def visualize_automation_effects():
+    """Visualize how automation affects costs and firm boundaries"""
+    print("\n=== Automation Effects Visualization ===")
+    
+    # Create cost function
+    c3 = make_cost_three_args(
+        theta=10.0,
+        gamma_p=0.8, rho_p=1.0,
+        gamma_c=0.3, rho_c=1.0,
+        mu=0.25, psi=1.4
+    )
+    
+    # Test different automation levels
+    automation_levels = [0.0, 0.3, 0.6, 0.9]
+    colors = ['red', 'blue', 'green', 'purple']
+    
+    plt.figure(figsize=(15, 10))
+    
+    # Plot 1: Cost functions for different automation levels
+    plt.subplot(2, 3, 1)
+    s_values = np.linspace(0, 1, 100)
+    t_values = np.linspace(0, 1, 100)
+    S, T = np.meshgrid(s_values, t_values)
+    
+    for i, a in enumerate(automation_levels):
+        C = np.array([[c3(s, t, a) for t in t_values] for s in s_values])
+        plt.contour(S, T, C, levels=10, colors=colors[i], alpha=0.7, label=f'a={a}')
+    
+    plt.title('Cost Functions at Different Automation Levels')
+    plt.xlabel('Scale s')
+    plt.ylabel('Transaction Volume t')
+    plt.legend()
+    plt.colorbar(label='Cost')
+    
+    # Plot 2: Price functions
+    plt.subplot(2, 3, 2)
+    for i, a in enumerate(automation_levels):
+        ps = RPline(n=100, delta=1.1, sbar=1.0, a=a, c_list=[c3])
+        plt.plot(ps.grid, ps.p, color=colors[i], label=f'a={a}')
+    
+    plt.title('Price Functions')
+    plt.xlabel('Scale s')
+    plt.ylabel('Price p(s)')
+    plt.legend()
+    plt.grid(True)
+    
+    # Plot 3: Number of transaction stages vs automation
+    plt.subplot(2, 3, 3)
+    automation_range = np.linspace(0, 1, 20)
+    stage_counts = []
+    
+    for a in automation_range:
+        ps = RPline(n=100, delta=1.1, sbar=1.0, a=a, c_list=[c3])
+        ts = ps.compute_stages()
+        stage_counts.append(len(ts))
+    
+    plt.plot(automation_range, stage_counts, 'b-', linewidth=2)
+    plt.title('Firm Boundaries vs Automation')
+    plt.xlabel('Automation Level a')
+    plt.ylabel('Number of Transaction Stages')
+    plt.grid(True)
+    
+    # Plot 4: Cost reduction effect
+    plt.subplot(2, 3, 4)
+    s_test = 0.5
+    t_test = 0.2
+    costs = [c3(s_test, t_test, a) for a in automation_range]
+    cost_reduction = [(costs[0] - cost) / costs[0] * 100 for cost in costs]
+    
+    plt.plot(automation_range, cost_reduction, 'g-', linewidth=2)
+    plt.title('Cost Reduction Effect')
+    plt.xlabel('Automation Level a')
+    plt.ylabel('Cost Reduction (%)')
+    plt.grid(True)
+    
+    plt.tight_layout()
+    plt.savefig('automation_effects.png', dpi=150, bbox_inches='tight')
+    print("Automation effects visualization saved as automation_effects.png")
 
 if __name__ == "__main__":
     run_fast_example()
-    compare_parameters() 
+    compare_parameters()
+    test_automation_levels()
+    visualize_automation_effects() 
