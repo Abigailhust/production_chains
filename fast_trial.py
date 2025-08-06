@@ -90,7 +90,15 @@ def run_fast_example():
     # Main plot: Price function
     plt.subplot(2, 2, 1)
     ps.plot_prices(plot_stages=True, label='Price Function')
-    plt.title('Price Function (Fast Version)')
+    
+    # Add break points as red vertical lines
+    for break_point in ps._breaks:
+        plt.axvline(x=break_point, color='red', linestyle='--', alpha=0.7, linewidth=2)
+    
+    # Calculate and display number of firms
+    ts = ps.compute_stages()
+    num_firms = len(ts) - 1  # Number of firms is stages - 1
+    plt.title(f'Price Function (Fast Version) - {num_firms} Firms')
     plt.xlabel('Scale s')
     plt.ylabel('Price p(s)')
     plt.grid(True)
@@ -99,6 +107,11 @@ def run_fast_example():
     # Subplot 1: t_star function
     plt.subplot(2, 2, 2)
     ps.plot_t_star()
+    
+    # Add break points as red vertical lines
+    for break_point in ps._breaks:
+        plt.axvline(x=break_point, color='red', linestyle='--', alpha=0.7, linewidth=2)
+    
     plt.title('Optimal Transaction Volume t*(s)')
     plt.xlabel('Scale s')
     plt.ylabel('Transaction Volume t*(s)')
@@ -107,23 +120,49 @@ def run_fast_example():
     # Subplot 2: ell_star function
     plt.subplot(2, 2, 3)
     ps.plot_ell_star()
+    
+    # Add break points as red vertical lines
+    for break_point in ps._breaks:
+        plt.axvline(x=break_point, color='red', linestyle='--', alpha=0.7, linewidth=2)
+    
     plt.title('Optimal Internal Production ℓ*(s)')
     plt.xlabel('Scale s')
     plt.ylabel('Internal Production ℓ*(s)')
     plt.grid(True)
     
-    # Subplot 3: Cost function
+    # Subplot 3: Cost function with automation effect
     plt.subplot(2, 2, 4)
+    
+    # Create cost function for current automation level
+    c1 = make_cost_function_1()
+    c2 = make_cost_function_2()
+    c3 = make_cost_function_3()
+    
     s_values = np.linspace(0, ps.sbar, 100)
     t_values = np.linspace(0, ps.sbar, 100)
     S, T = np.meshgrid(s_values, t_values)
-    C = np.array([[ps._cost(s, t) for t in t_values] for s in s_values])
+    
+    # Calculate costs using the appropriate cost function for each region
+    C = np.zeros_like(S)
+    for i, s in enumerate(s_values):
+        for j, t in enumerate(t_values):
+            # Determine which cost function to use based on s
+            if s < ps._breaks[0]:
+                C[i, j] = c1(s, t, ps._a)
+            elif s < ps._breaks[1]:
+                C[i, j] = c2(s, t, ps._a)
+            else:
+                C[i, j] = c3(s, t, ps._a)
     
     plt.contourf(S, T, C, levels=20)
     plt.colorbar(label='Cost')
-    plt.title('Cost Function c(s,t)')
+    plt.title(f'Cost Function c(s,t) at a={ps._a}')
     plt.xlabel('Scale s')
     plt.ylabel('Transaction Volume t')
+    
+    # Add break points as red vertical lines
+    for break_point in ps._breaks:
+        plt.axvline(x=break_point, color='red', linestyle='--', alpha=0.7, linewidth=2)
     
     plt.tight_layout()
     plt.savefig('figures/fast_trial_output.png', dpi=150, bbox_inches='tight')
@@ -403,7 +442,7 @@ def visualize_automation_effects():
 
 if __name__ == "__main__":
     run_fast_example()
-    compare_parameters()
-    test_automation_levels()
-    analyze_multi_stage_cost_functions()
-    visualize_automation_effects() 
+    # compare_parameters()
+    # test_automation_levels()
+    #  analyze_multi_stage_cost_functions()
+    # visualize_automation_effects() 
