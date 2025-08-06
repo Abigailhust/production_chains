@@ -8,19 +8,45 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 
-def make_cost_three_args(theta=5.0,
-                         gamma_p=0.8, rho_p=1.0,
-                         gamma_c=0.2, rho_c=1.0,
-                         mu=0.2, psi=1.5):
+def make_cost_function_1(theta=10.0, gamma_p=0.8, rho_p=1.0, gamma_c=0.3, rho_c=1.0, mu=0.25, psi=1.4):
     """
-    Return cost function c(s, t, a).
+    Cost function 1: Standard automation effect
     - production cost: (exp(theta * x) - 1) * exp(-gamma_p * a * x**rho_p)
     - transaction cost: mu * t**psi * exp(-gamma_c * a * t**rho_c)
-    Higher automation level a reduces costs.
     """
     def c(s, t, a):
         x = s - t
-        x = np.clip(s - t, 1e-8, None)  # make sure >= 1e-8
+        x = np.clip(s - t, 1e-8, None)
+        t = np.clip(t, 1e-8, None)
+        prod = (np.exp(theta * x) - 1.0) * np.exp(-gamma_p * a * (x ** rho_p))
+        coord = mu * (t ** psi) * np.exp(-gamma_c * a * (t ** rho_c))
+        return prod + coord
+    return c
+
+def make_cost_function_2(theta=8.0, gamma_p=1.2, rho_p=0.8, gamma_c=0.5, rho_c=1.2, mu=0.3, psi=1.6):
+    """
+    Cost function 2: Strong automation effect on production, weak on coordination
+    - production cost: (exp(theta * x) - 1) * exp(-gamma_p * a * x**rho_p)
+    - transaction cost: mu * t**psi * exp(-gamma_c * a * t**rho_c)
+    """
+    def c(s, t, a):
+        x = s - t
+        x = np.clip(s - t, 1e-8, None)
+        t = np.clip(t, 1e-8, None)
+        prod = (np.exp(theta * x) - 1.0) * np.exp(-gamma_p * a * (x ** rho_p))
+        coord = mu * (t ** psi) * np.exp(-gamma_c * a * (t ** rho_c))
+        return prod + coord
+    return c
+
+def make_cost_function_3(theta=12.0, gamma_p=0.4, rho_p=1.5, gamma_c=0.8, rho_c=0.8, mu=0.2, psi=1.2):
+    """
+    Cost function 3: Weak automation effect on production, strong on coordination
+    - production cost: (exp(theta * x) - 1) * exp(-gamma_p * a * x**rho_p)
+    - transaction cost: mu * t**psi * exp(-gamma_c * a * t**rho_c)
+    """
+    def c(s, t, a):
+        x = s - t
+        x = np.clip(s - t, 1e-8, None)
         t = np.clip(t, 1e-8, None)
         prod = (np.exp(theta * x) - 1.0) * np.exp(-gamma_p * a * (x ** rho_p))
         coord = mu * (t ** psi) * np.exp(-gamma_c * a * (t ** rho_c))
@@ -28,27 +54,26 @@ def make_cost_three_args(theta=5.0,
     return c
 
 def run_fast_example():
-    """Run fast example"""
-    print("=== Fast Running Example ===")
+    """Run fast example with different cost functions for different stages"""
+    print("=== Fast Running Example with Multi-Stage Cost Functions ===")
     
     # Use optimized parameters
     start_time = time.time()
     
-    # Create cost function with automation reducing costs
-    c3 = make_cost_three_args(
-        theta=10.0,           # Production cost parameter
-        gamma_p=0.8, rho_p=1.0,   # Automation reduces production costs
-        gamma_c=0.3, rho_c=1.0,   # Automation reduces coordination costs
-        mu=0.25, psi=1.4
-    )
+    # Create three different cost functions for different stages
+    c1 = make_cost_function_1()  # Upstream firms (e.g., raw materials)
+    c2 = make_cost_function_2()  # Midstream firms (e.g., processing)
+    c3 = make_cost_function_3()  # Downstream firms (e.g., final assembly)
     
-    # Create fast version
+    # Create RPline with multiple cost functions
+    # The cost function will be selected based on the stage/position in the chain
     ps = RPline(
         n=100,        # Reduce grid points
         delta=1.1,    # Lower delta value
         sbar=0.5,     # Reduce scale range
         a=0.5,        # Set automation level
-        c_list=[c3]   # Use the new cost function
+        c_list=[c1, c2, c3],  # Multiple cost functions
+        breaks=[0.2, 0.6]     # Break points: s < 0.2 use c1, 0.2 <= s < 0.6 use c2, s >= 0.6 use c3
     )
     
     print(f"Creation time: {time.time() - start_time:.2f} seconds")
@@ -112,11 +137,11 @@ def compare_parameters():
     """Compare the effects of different parameters"""
     print("\n=== Parameter Comparison ===")
     
-    # Test different parameter combinations
+    # Test different cost functions
     test_cases = [
-        {"name": "Fast Version", "n": 50, "delta": 1.1, "sbar": 0.5, "theta": 8.0},
-        {"name": "Medium Version", "n": 100, "delta": 1.2, "sbar": 1.0, "theta": 10.0},
-        {"name": "Standard Version", "n": 200, "delta": 1.2, "sbar": 1.0, "theta": 12.0}
+        {"name": "Cost Function 1", "n": 100, "delta": 1.1, "sbar": 0.5, "cost_func": 1},
+        {"name": "Cost Function 2", "n": 100, "delta": 1.1, "sbar": 0.5, "cost_func": 2},
+        {"name": "Cost Function 3", "n": 100, "delta": 1.1, "sbar": 0.5, "cost_func": 3}
     ]
     
     results = []
@@ -126,19 +151,19 @@ def compare_parameters():
         start = time.time()
         
         # Create cost function for this case
-        c3 = make_cost_three_args(
-            theta=case['theta'],
-            gamma_p=0.8, rho_p=1.0,
-            gamma_c=0.3, rho_c=1.0,
-            mu=0.25, psi=1.4
-        )
+        if case['cost_func'] == 1:
+            cost_func = make_cost_function_1()
+        elif case['cost_func'] == 2:
+            cost_func = make_cost_function_2()
+        else:
+            cost_func = make_cost_function_3()
         
         ps = RPline(
             n=case['n'],
             delta=case['delta'],
             sbar=case['sbar'],
             a=0.5,  # Set automation level
-            c_list=[c3]
+            c_list=[cost_func]
         )
         
         end = time.time()
@@ -169,19 +194,14 @@ def test_automation_levels():
         start = time.time()
         
         # Create cost function with automation reducing costs
-        c3 = make_cost_three_args(
-            theta=10.0,
-            gamma_p=0.8, rho_p=1.0,
-            gamma_c=0.3, rho_c=1.0,
-            mu=0.25, psi=1.4
-        )
+        c1 = make_cost_function_1()
         
         ps = RPline(
             n=100,
             delta=1.1,
             sbar=0.5,
             a=a,  # Set automation level
-            c_list=[c3]
+            c_list=[c1]
         )
         
         end = time.time()
@@ -194,17 +214,125 @@ def test_automation_levels():
         if len(ts) > 1:
             print(f"  First transaction stage: {ts[1]:.4f}")
 
+def analyze_multi_stage_cost_functions():
+    """Analyze the effects of different cost functions at different stages"""
+    print("\n=== Multi-Stage Cost Function Analysis ===")
+    
+    # Create three different cost functions for different stages
+    c1 = make_cost_function_1()  # Upstream firms
+    c2 = make_cost_function_2()  # Midstream firms  
+    c3 = make_cost_function_3()  # Downstream firms
+    
+    # Test different break point configurations
+    break_configs = [
+        {"name": "Early Midstream", "breaks": [0.1, 0.4]},
+        {"name": "Balanced Stages", "breaks": [0.2, 0.6]},
+        {"name": "Late Midstream", "breaks": [0.3, 0.8]}
+    ]
+    
+    plt.figure(figsize=(15, 10))
+    
+    for i, config in enumerate(break_configs):
+        print(f"\nTesting {config['name']} configuration...")
+        
+        ps = RPline(
+            n=100,
+            delta=1.1,
+            sbar=1.0,
+            a=0.5,
+            c_list=[c1, c2, c3],
+            breaks=config['breaks']
+        )
+        
+        # Plot price function
+        plt.subplot(2, 3, i+1)
+        plt.plot(ps.grid, ps.p, 'b-', linewidth=2, label='Price Function')
+        
+        # Mark break points
+        for j, break_point in enumerate(config['breaks']):
+            plt.axvline(x=break_point, color='red', linestyle='--', alpha=0.7, 
+                       label=f'Break {j+1}: {break_point}')
+        
+        plt.title(f'{config["name"]} (Breaks: {config["breaks"]})')
+        plt.xlabel('Scale s')
+        plt.ylabel('Price p(s)')
+        plt.legend()
+        plt.grid(True)
+        
+        # Calculate transaction stages
+        ts = ps.compute_stages()
+        print(f"  Number of transaction stages: {len(ts)}")
+        print(f"  Transaction stages: {[f'{t:.4f}' for t in ts]}")
+    
+    # Plot cost functions comparison
+    plt.subplot(2, 3, 4)
+    s_values = np.linspace(0, 1, 100)
+    t_values = np.linspace(0, 1, 100)
+    S, T = np.meshgrid(s_values, t_values)
+    
+    # Plot cost functions at automation level 0.5
+    a = 0.5
+    C1 = np.array([[c1(s, t, a) for t in t_values] for s in s_values])
+    C2 = np.array([[c2(s, t, a) for t in t_values] for s in s_values])
+    C3 = np.array([[c3(s, t, a) for t in t_values] for s in s_values])
+    
+    plt.contour(S, T, C1, levels=10, colors='red', alpha=0.7, label='Cost Function 1 (Upstream)')
+    plt.contour(S, T, C2, levels=10, colors='blue', alpha=0.7, label='Cost Function 2 (Midstream)')
+    plt.contour(S, T, C3, levels=10, colors='green', alpha=0.7, label='Cost Function 3 (Downstream)')
+    
+    plt.title('Cost Functions Comparison (a=0.5)')
+    plt.xlabel('Scale s')
+    plt.ylabel('Transaction Volume t')
+    plt.legend()
+    
+    # Plot automation effects on different stages
+    plt.subplot(2, 3, 5)
+    automation_range = np.linspace(0, 1, 20)
+    s_test = 0.5
+    t_test = 0.2
+    
+    costs1 = [c1(s_test, t_test, a) for a in automation_range]
+    costs2 = [c2(s_test, t_test, a) for a in automation_range]
+    costs3 = [c3(s_test, t_test, a) for a in automation_range]
+    
+    plt.plot(automation_range, costs1, 'r-', linewidth=2, label='Upstream (CF1)')
+    plt.plot(automation_range, costs2, 'b-', linewidth=2, label='Midstream (CF2)')
+    plt.plot(automation_range, costs3, 'g-', linewidth=2, label='Downstream (CF3)')
+    
+    plt.title('Cost vs Automation Level')
+    plt.xlabel('Automation Level a')
+    plt.ylabel('Cost c(s,t,a)')
+    plt.legend()
+    plt.grid(True)
+    
+    # Plot stage distribution
+    plt.subplot(2, 3, 6)
+    stage_counts = []
+    break_config = {"breaks": [0.2, 0.6]}  # Use balanced configuration
+    
+    for a in automation_range:
+        ps = RPline(n=100, delta=1.1, sbar=1.0, a=a, c_list=[c1, c2, c3], breaks=break_config['breaks'])
+        ts = ps.compute_stages()
+        stage_counts.append(len(ts))
+    
+    plt.plot(automation_range, stage_counts, 'purple', linewidth=2)
+    plt.title('Firm Boundaries vs Automation')
+    plt.xlabel('Automation Level a')
+    plt.ylabel('Number of Transaction Stages')
+    plt.grid(True)
+    
+    plt.tight_layout()
+    plt.savefig('multi_stage_analysis.png', dpi=150, bbox_inches='tight')
+    print("Multi-stage analysis saved as multi_stage_analysis.png")
+
 def visualize_automation_effects():
     """Visualize how automation affects costs and firm boundaries"""
     print("\n=== Automation Effects Visualization ===")
     
-    # Create cost function
-    c3 = make_cost_three_args(
-        theta=10.0,
-        gamma_p=0.8, rho_p=1.0,
-        gamma_c=0.3, rho_c=1.0,
-        mu=0.25, psi=1.4
-    )
+    # Create three different cost functions
+    c1 = make_cost_function_1()  # Standard automation effect
+    c2 = make_cost_function_2()  # Strong production, weak coordination
+    c3 = make_cost_function_3()  # Weak production, strong coordination
     
     # Test different automation levels
     automation_levels = [0.0, 0.3, 0.6, 0.9]
@@ -277,4 +405,5 @@ if __name__ == "__main__":
     run_fast_example()
     compare_parameters()
     test_automation_levels()
+    analyze_multi_stage_cost_functions()
     visualize_automation_effects() 
