@@ -200,13 +200,13 @@ class RPline(RP):
                 plt.axvline(x=s, c="0.5")
 
     def plot_t_star(self):
-        plt.xlim=(0,self.S)
-        plt.ylim=(0,self.S)
+        plt.xlim(0, self._sbar)
+        plt.ylim(0, self._sbar)
         plt.plot(self.grid, [self.t_star(s) for s in self.grid], 'b-')
 
     def plot_ell_star(self):
-        plt.xlim=(0,self.S)
-        plt.ylim=(0,self.S)
+        plt.xlim(0, self._sbar)
+        plt.ylim(0, self._sbar)
         plt.plot(self.grid, [self.ell_star(s) for s in self.grid], 'b-')
 
 
