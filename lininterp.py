@@ -1,5 +1,6 @@
 
-from scipy import interp
+# from scipy import interp
+import numpy as interp
 
 class linInterp:
     "Provides linear interpolation in one dimension."

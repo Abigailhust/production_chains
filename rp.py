@@ -13,6 +13,7 @@ Last modified: March 2014.
 from __init__ import *
 
 
+
 class RP(object):
     """
     The base class.   Computes equilibrium prices and actions for the
@@ -27,22 +28,39 @@ class RP(object):
     def __init__(self, 
             n=1000, 
             delta=1.2, 
-            c=lambda t: np.exp(10*t) - 1, 
+            c=lambda t: np.exp(10*t) - 1,  # TODO: automation level 
             k=1,
-            sbar=1):
+            sbar=1,
+            a = 0.0):
 
         self._n = n
         self._delta = delta
         self._c = c
         self._k = k
         self._sbar = sbar
+        self._a = a   
         self.update()
 
     def update(self):
         self.grid = np.linspace(0, self._sbar, num=self._n)
         self.p = np.zeros(self._n)     # Will store vals of p at the grid points
-        self.compute_prices2()         # Populates p
+        self.compute_prices()         # Populates p
         self.p_func = lambda x: interp(x, self.grid, self.p)  # Holds the lin interp of p
+
+    def get_a(self): return self._a
+
+    def set_a(self, a): 
+        self._a = a
+        self.update()
+    a = property(get_a, set_a)
+
+    # 兼容包装：既支持 c(x)，也支持 c(s, t, a)
+    def _cost(self, s, t):
+        t = max(t, 1e-8)  # 避免负数和0
+        try:
+            return self._c(s, t, self._a)      # 新式：三参
+        except TypeError:
+            return self._c(s - t)              # 旧式：单参
 
     def get_n(self):
         return self._n
@@ -92,16 +110,18 @@ class RP(object):
         """
         delta, k, c, n = self._delta, self._k, self._c, self._n
         sbar = self._sbar
-        self.p = c(self.grid)  # Initial condition is c(s), as an array
+        # self.p = c(self.grid)  # Initial condition is c(s), as an array
+        self.p = self._c(self.grid) if self._c.__code__.co_argcount == 1 else np.zeros(self._n)
         new_p = np.empty(self.n)
         error = tol + 1
         while error > tol:
             for i, s in enumerate(self.grid):
                 p = lambda x: interp(x, self.grid, self.p)
-                Tp = lambda t: delta * k * p(t / k) + c(s - t)
+                Tp = lambda t: delta * k * p(t / k) + self._cost(s, t)
                 new_p[i] = Tp(fminbound(Tp, 0, s))
             error = np.max(np.abs(self.p - new_p))
-            self.p = new_p
+            # self.p = new_p
+            self.p = new_p.copy()  # 避免引用同一数组
 
     def compute_prices2(self):
         """
@@ -112,7 +132,7 @@ class RP(object):
         self.p[0] = 0
         for i in range(1, self.n):
             interp_p = lambda x: interp(x, self.grid[:i], self.p[:i])
-            f = lambda t: delta * k * interp_p(t / k) + c(self.grid[i] - t)
+            f = lambda t: delta * k * interp_p(t / k) + self._cost(self.grid[i], t)
             self.p[i] = f(fminbound(f, 0, self.grid[i-1]))
 
     def t_star(self, s):
@@ -123,11 +143,13 @@ class RP(object):
         Alex Olssen for pointing this out.
         """
         delta, k, c, n = self._delta, self._k, self._c, self._n
-        f = lambda t: delta * k * self.p_func(t / k) + c(s - t)
+        f = lambda t: delta * k * self.p_func(t / k) + self._cost(s, t)
         return max(fminbound(f, -1, s), 0)
 
     def ell_star(self, s):
         return s - self.t_star(s)
+
+
 
 
 
@@ -168,7 +190,6 @@ class RPtree(RP):
     """
     Subclass for the tree model (k > 1).
     """
-
     def compute_stages(self):
         """
         This function creates a list called levels, where levels[n] is a tuple
