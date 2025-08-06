@@ -38,14 +38,14 @@ for level in levels:
     ts.append(t)
     ls.append(l)
     vs.append(v)
-    print "level:", i, "; sum va:", sum(vs)
+    print("level:", i, "; sum va:", sum(vs))
     i += 1
 # Count the number of levels and firms
 num_levels = len(levels)
 num_firms = 0
 for n in range(num_levels):
     num_firms += ps.k**n
-print "Number of firms:", num_firms
+print("Number of firms:", num_firms)
 
 ## Work out value added for each firm, where firms are
 ## enumerated top to bottom and left to right in the vertical tree
@@ -78,7 +78,7 @@ ax.axes.get_yaxis().set_visible(False)
 fig.show()
 
 
-#plt.savefig('circular_tree.png')
+plt.savefig('figures/circular_tree.png', dpi=150, bbox_inches='tight')
 #for i in range(num_firms):
 #    x, y = pos[i]
 #    x = x * np.random.uniform(low=0.98, high=1.02)

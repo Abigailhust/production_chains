@@ -126,8 +126,8 @@ def run_fast_example():
     plt.ylabel('Transaction Volume t')
     
     plt.tight_layout()
-    plt.savefig('fast_trial_output.png', dpi=150, bbox_inches='tight')
-    print("Image saved as fast_trial_output.png")
+    plt.savefig('figures/fast_trial_output.png', dpi=150, bbox_inches='tight')
+    print("Image saved as figures/fast_trial_output.png")
     
     total_time = time.time() - start_time
     print(f"Total computation time: {total_time:.2f} seconds")
@@ -322,8 +322,8 @@ def analyze_multi_stage_cost_functions():
     plt.grid(True)
     
     plt.tight_layout()
-    plt.savefig('multi_stage_analysis.png', dpi=150, bbox_inches='tight')
-    print("Multi-stage analysis saved as multi_stage_analysis.png")
+    plt.savefig('figures/multi_stage_analysis.png', dpi=150, bbox_inches='tight')
+    print("Multi-stage analysis saved as figures/multi_stage_analysis.png")
 
 def visualize_automation_effects():
     """Visualize how automation affects costs and firm boundaries"""
@@ -398,8 +398,8 @@ def visualize_automation_effects():
     plt.grid(True)
     
     plt.tight_layout()
-    plt.savefig('automation_effects.png', dpi=150, bbox_inches='tight')
-    print("Automation effects visualization saved as automation_effects.png")
+    plt.savefig('figures/automation_effects.png', dpi=150, bbox_inches='tight')
+    print("Automation effects visualization saved as figures/automation_effects.png")
 
 if __name__ == "__main__":
     run_fast_example()

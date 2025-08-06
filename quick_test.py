@@ -38,8 +38,8 @@ def test_rpline():
     plt.legend()
     
     # 保存图片
-    plt.savefig('quick_test_output.png', dpi=150, bbox_inches='tight')
-    print("图片已保存为 quick_test_output.png")
+    plt.savefig('figures/quick_test_output.png', dpi=150, bbox_inches='tight')
+    print("图片已保存为 figures/quick_test_output.png")
     
     total_time = time.time() - start_time
     print(f"总计算时间: {total_time:.2f}秒")
