@@ -28,14 +28,22 @@ class RP(object):
     def __init__(self, 
             n=1000, 
             delta=1.2, 
-            c=lambda t: np.exp(10*t) - 1,  # TODO: automation level 
+            # c=lambda t: np.exp(10*t) - 1,  # TODO: automation level 
+            c_list = None,
+            breaks = None,
             k=1,
             sbar=1,
             a = 0.0):
 
+        if c_list is None:
+            c_list = [lambda s, t, a: np.exp(10*(s-t)) - 1]
+            breaks = []
+
         self._n = n
         self._delta = delta
-        self._c = c
+        # self._c = c
+        self._c_list = c_list
+        self._breaks = breaks or []
         self._k = k
         self._sbar = sbar
         self._a = a   
@@ -55,12 +63,23 @@ class RP(object):
     a = property(get_a, set_a)
 
     # 兼容包装：既支持 c(x)，也支持 c(s, t, a)
+    # def _cost(self, s, t):
+    #     t = max(t, 1e-8)  # 避免负数和0
+    #     try:
+    #         return self._c(s, t, self._a)      # 新式：三参
+    #     except TypeError:
+    #         return self._c(s - t)              # 旧式：单参
+
+    # ------------- helper: choose segment -----------------
     def _cost(self, s, t):
-        t = max(t, 1e-8)  # 避免负数和0
-        try:
-            return self._c(s, t, self._a)      # 新式：三参
-        except TypeError:
-            return self._c(s - t)              # 旧式：单参
+        """Dispatch to the right cost function according to s."""
+        idx = np.searchsorted(self._breaks, s, side='right')
+        c   = self._c_list[idx]
+        # two possible signatures: c(x)  or  c(s,t,a)
+        if c.__code__.co_argcount == 1:          # legacy 1-arg version
+            return c(s - t)
+        else:                                    # new 3-arg version
+            return c(s, t, self._a)
 
     def get_n(self):
         return self._n
@@ -69,7 +88,7 @@ class RP(object):
         return self._k
 
     def get_c(self):
-        return self._c
+        return self._c_list[0] if self._c_list else None
 
     def get_delta(self):
         return self._delta
@@ -108,10 +127,16 @@ class RP(object):
         This is the standard algorithm, involving iteration with T.
         The initial condition is p = c.
         """
-        delta, k, c, n = self._delta, self._k, self._c, self._n
+        delta, k, n = self._delta, self._k, self._n
         sbar = self._sbar
         # self.p = c(self.grid)  # Initial condition is c(s), as an array
-        self.p = self._c(self.grid) if self._c.__code__.co_argcount == 1 else np.zeros(self._n)
+        # self.p = self._c(self.grid) if self._c.__code__.co_argcount == 1 else np.zeros(self._n)
+        # initialise: if *all* cost functions are 1-arg, use c(s)
+        if all(c.__code__.co_argcount == 1 for c in self._c_list):
+            self.p = np.array([self._cost(s, 0) for s in self.grid])
+        else:
+            self.p.fill(0)
+
         new_p = np.empty(self.n)
         error = tol + 1
         while error > tol:
@@ -128,7 +153,7 @@ class RP(object):
         This is a faster algorithm, although the mathematical justification
         is more involved.
         """
-        delta, k, c, n = self._delta, self._k, self._c, self._n
+        delta, k, n = self._delta, self._k, self._n
         self.p[0] = 0
         for i in range(1, self.n):
             interp_p = lambda x: interp(x, self.grid[:i], self.p[:i])
@@ -142,7 +167,7 @@ class RP(object):
         zero.  This hack results in better results close to zero.  Thanks to
         Alex Olssen for pointing this out.
         """
-        delta, k, c, n = self._delta, self._k, self._c, self._n
+        delta, k, n = self._delta, self._k, self._n
         f = lambda t: delta * k * self.p_func(t / k) + self._cost(s, t)
         return max(fminbound(f, -1, s), 0)
 
